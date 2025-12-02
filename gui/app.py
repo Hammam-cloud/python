@@ -3,14 +3,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageDraw, ImageOps, ImageTk
 import numpy as np
-
-from src.predict import predict_image
-
-MODEL_PATH = 'model/model.h5'
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Add project root to path for src imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.predict import predict_image
+
+MODEL_PATH = 'model/alphabet_model.h5'  # match your trained model
 
 class DrawApp:
     def __init__(self, root, width=280, height=280):
@@ -41,7 +41,6 @@ class DrawApp:
 
         # Bind events
         self.canvas.bind('<B1-Motion>', self.paint)
-        self.canvas.bind('<ButtonRelease-1>', lambda e: None)
 
     # Draw on canvas + PIL image
     def paint(self, event):
@@ -76,17 +75,13 @@ class DrawApp:
             messagebox.showerror('Model missing', f'Model not found at {MODEL_PATH}. Run training first.')
             return
 
-        # Resize to model size
-        img = self.image.resize((28, 28))
-        img = img.convert('L')
-
-        # Convert to numpy for model
+        # Resize to model input size
+        img = self.image.resize((28, 28)).convert('L')
         img_np = np.array(img) / 255.0
-        img_np = img_np.reshape(1, 28, 28)
+        img_np = img_np.reshape(1, 28, 28, 1)  # CNN expects 4D
 
-        # Predict using your model
-        prediction = predict_image(img_np)
-
+        # Run prediction
+        prediction = predict_image(MODEL_PATH, img_np)
         self.result_label.config(text=f'Prediction: {prediction}')
 
 

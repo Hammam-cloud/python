@@ -1,44 +1,43 @@
-# /src/predict.py
+# src/predict.py
 import os
-import sys
 import numpy as np
-from PIL import Image
-from src.model import load_trained_model
-from src.preprocessing import preprocess_image_pil
+from tensorflow.keras.models import load_model
+
+MODEL_PATH = "model/alphabet_model.h5"
+
+# Function to predict a single image array
+def predict_image(model_path, img_array):
+    """
+    Predict the alphabet character from a 28x28 grayscale image array.
+
+    Args:
+        model_path (str): Path to the trained model (.h5)
+        img_array (np.array): Shape (1, 28, 28, 1), normalized [0,1]
+
+    Returns:
+        str: Predicted character ('A'-'Z')
+    """
+    model = load_model(model_path)
+    pred = model.predict(img_array)
+    classes = [chr(i) for i in range(65, 91)]  # A-Z
+    return classes[np.argmax(pred)]
 
 
-def load_classes(model_dir):
-    classes_file = os.path.join(model_dir, 'classes.txt')
-    if not os.path.exists(classes_file):
-        raise FileNotFoundError('classes.txt not found in model dir: ' + model_dir)
-    with open(classes_file, 'r') as f:
-        classes = [line.strip() for line in f.readlines()]
-    return classes
+# Optional: you can keep this main() for retraining
+if __name__ == "__main__":
+    from src.data_loader import load_dataset
+    from src.model import build_model
 
+    print("Loading dataset...")
+    X, y, classes = load_dataset()
 
-def predict_image(model_path, image_pil):
-    model = load_trained_model(model_path)
-    model_dir = os.path.dirname(model_path)
-    classes = load_classes(model_dir)
+    print("Building model...")
+    model = build_model(num_classes=len(classes))
 
-    arr = preprocess_image_pil(image_pil)  # shape (28, 28)
-    arr = arr.reshape((1, 28, 28, 1))  # ensure correct shape for CNN
+    print("Training...")
+    model.fit(X, y, epochs=10, batch_size=32, validation_split=0.2)
 
-    preds = model.predict(arr)
-    idx = int(np.argmax(preds, axis=1)[0])
-    score = float(np.max(preds))
-    return classes[idx], score
-
-
-if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('Usage: python predict.py /path/to/model.h5 /path/to/image.png')
-        sys.exit(1)
-
-    model_path = sys.argv[1]
-    img_path = sys.argv[2]
-
-    pil = Image.open(img_path).convert("L")  # convert to grayscale
-    cls, score = predict_image(model_path, pil)
-
-    print('Predicted:', cls, 'score:', score)
+    print("Saving model...")
+    os.makedirs("model", exist_ok=True)
+    model.save(MODEL_PATH)
+    print("Model saved at:", MODEL_PATH)
